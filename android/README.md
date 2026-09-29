@@ -45,4 +45,4 @@ The home SSID and saved door coordinates are not included in recording JSON or Z
 
 ## Validation
 
-Unit tests cover the proximity predicate, monotonic-to-UTC timestamp mapping, the departure decision rules (walking, reconnect grace, arrival dwell, cooldown), and the rolling sensor buffer. Run them from Android Studio or with `./gradlew testDebugUnitTest`.
+Unit tests cover the proximity predicate, monotonic-to-UTC timestamp mapping, the departure decision rules (walking, reconnect grace, arrival dwell, cooldown), and the rolling sensor buffer. `RealRecordingReplayTest` replays the real Pixel 8a recordings in [samples/recordings](../samples/recordings) through the departure rule. The Python tools in [ml/](../ml/README.md) validate and plot exported ZIPs. Run them from Android Studio or with `./gradlew testDebugUnitTest`.

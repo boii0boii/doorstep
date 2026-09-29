@@ -4,6 +4,7 @@ kotlin = "2.0.21"
 composeBom = "2024.09.03"
 activityCompose = "1.9.2"
 junit = "4.13.2"
+orgJson = "20240303"
 coroutines = "1.9.0"
 lifecycle = "2.8.6"
 
@@ -22,4 +23,5 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 junit = { module = "junit:junit", version.ref = "junit" }
+org-json = { module = "org.json:json", version.ref = "orgJson" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

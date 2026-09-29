@@ -26,3 +26,8 @@ captures/
 
 # The Gradle wrapper jar must be committed so ./gradlew works after cloning
 !gradle/wrapper/gradle-wrapper.jar
+
+# Python
+__pycache__/
+*.pyc
+.venv/
