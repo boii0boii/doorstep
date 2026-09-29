@@ -1,5 +1,7 @@
 # Location-Gated Doorway Recognition Plan
 
+> **Design history.** This is the original planning document. The approach changed once the phone-locked-in-a-pocket constraint was worked through: reminders no longer use GPS as a gate, and instead combine home Wi-Fi loss with walking, detected by a foreground service. See the [README](../README.md#how-it-works) for the current design.
+
 ## Purpose and current status
 
 The current Xcode target records labeled Core Motion sessions and exports local JSON/ZIP data. It now also has a **Test** mode that probes current Wi-Fi SSID access and captures/checks a main-door coordinate and location accuracy. It does not yet train or run a model, monitor gates in the background, or send alerts. Treat Test mode as a physical-device feasibility probe, not detection.

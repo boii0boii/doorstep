@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "DoorwaySensorRecorderAndroid"
+rootProject.name = "Doorstep"
 include(":app")

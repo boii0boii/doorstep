@@ -1,5 +1,7 @@
 # Android Companion App Plan
 
+> **Design history.** This is the original planning document. The approach changed once the phone-locked-in-a-pocket constraint was worked through: reminders no longer use GPS as a gate, and instead combine home Wi-Fi loss with walking, detected by a foreground service. See the [README](../README.md#how-it-works) for the current design.
+
 ## Goal and recommendation
 
 Build a native Android app that can collect the personal doorway dataset and, after offline training, run the same location-gated pattern detector entirely on-device. The repository retains the iOS/Xcode recorder and now includes the Android v1 under `android/`.
