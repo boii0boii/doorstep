@@ -1,6 +1,6 @@
-# Doorway Sensor Recorder for Android
+# Doorstep for Android
 
-Native Kotlin/Jetpack Compose companion project. This Android app is the first platform target for the three-gate prototype because Android exposes connected Wi-Fi information through public APIs without the Apple Wi-Fi entitlement that the current Personal Team cannot provision.
+Native Kotlin/Jetpack Compose app (package `com.boii0boii.doorstep`). Android is the first platform because it exposes the connected Wi-Fi name through public APIs, without the Apple entitlement that a free iOS developer account cannot provision. See the [project README](../README.md) for the overview.
 
 ## Current scope
 
@@ -19,7 +19,7 @@ Native Kotlin/Jetpack Compose companion project. This Android app is the first p
 - JDK 17 (Android Studio's bundled JBR is suitable).
 - A physical Android phone for sensor, Wi-Fi, and GPS validation. An emulator cannot validate pocket motion or real indoor GPS.
 
-Open the `android/` directory as a project in Android Studio and allow Gradle sync. Select a connected phone with USB debugging enabled and run the `app` configuration. From a terminal in this directory, `./gradlew testDebugUnitTest` runs the unit tests and `./gradlew assembleDebug` builds the debug APK.
+Open this `android/` directory as a project in Android Studio and allow Gradle sync. Select a connected phone with USB debugging enabled and run the `app` configuration. From a terminal in this directory, `./gradlew testDebugUnitTest` runs the unit tests and `./gradlew assembleDebug` builds the debug APK.
 
 ## Permissions
 
@@ -45,4 +45,4 @@ The home SSID and saved door coordinates are not included in recording JSON or Z
 
 ## Validation
 
-Unit tests cover the proximity predicate, monotonic-to-UTC timestamp mapping, the departure decision rules (walking, reconnect grace, arrival dwell, cooldown), and the rolling sensor buffer. Run them from Android Studio or with `./gradlew testDebugUnitTest`.
+Unit tests cover the proximity predicate, monotonic-to-UTC timestamp mapping, the departure decision rules (walking, reconnect grace, arrival dwell, cooldown), and the rolling sensor buffer. `RealRecordingReplayTest` replays the real Pixel 8a recordings in [samples/recordings](../samples/recordings) through the departure rule. The Python tools in [ml/](../ml/README.md) validate and plot exported ZIPs. Run them from Android Studio or with `./gradlew testDebugUnitTest`.

@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.doorwaysensorrecorder"
+    namespace = "com.boii0boii.doorstep"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.doorwaysensorrecorder"
+        applicationId = "com.boii0boii.doorstep"
         minSdk = 30
         targetSdk = 35
         versionCode = 1
@@ -49,4 +49,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    // Real org.json for JVM tests; android.jar only ships stubs.
+    testImplementation(libs.org.json)
 }
