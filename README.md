@@ -1,11 +1,12 @@
-# Doorstep
+# 🔑 Doorstep
 
 [![CI](https://github.com/boii0boii/doorstep/actions/workflows/ci.yml/badge.svg)](https://github.com/boii0boii/doorstep/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Doorstep uses the phone already in your pocket to notice you're leaving home and remind you to take your keys. No tags or hardware needed.
+**Your phone taps you on the shoulder at the door, before you walk out without your keys.**
+No tags, no beacons, nothing to stick on your keyring. Just the phone already in your pocket.
 
-**[One-page project memo](https://claude.ai/artifact/4m6TwFnR47uz5YJkQtwmMw)** · **[Architecture and design decisions](docs/ARCHITECTURE.md)**
+**[One-page project memo](https://claude.ai/artifact/4m6TwFnR47uz5YJkQtwmMw)** · **[How it's built](docs/ARCHITECTURE.md)**
 
 <p>
   <img src="docs/images/reminders.png" alt="Reminders screen: monitor running, on home Wi-Fi and armed" width="270">
@@ -13,94 +14,117 @@ Doorstep uses the phone already in your pocket to notice you're leaving home and
   <img src="docs/images/training.png" alt="Training screen: label selection and sensor availability" width="270">
 </p>
 
-## The problem
+## The 3-second problem
 
-Getting locked out happens because nothing stops you at the moment you leave. Bluetooth trackers can warn you, but only if you bought a tag, attached it to your keys and kept it charged. Doorstep tries to do the same job with sensors the phone already has, while the phone stays locked in your pocket.
+You grab your jacket, open the door, step out, and *click*, it shuts behind you. You pat your pocket. No keys.
 
-That rules out the obvious approaches:
+Every lockout happens in the same few seconds at the door. A reminder that arrives after the door has closed is too late, so Doorstep has to buzz **while you're still inside**.
 
-- **GPS can't find a door.** Indoor fixes in a pocket are typically off by 10–50 m.
-- **OS geofences are coarse and late.** They are reliable at around 100–150 m and can fire minutes after the event.
-- **Apps normally stop receiving sensor data** once the screen locks.
-- **False alarms and battery drain** get the app uninstalled.
+## The idea: learn how *you* leave
 
-## How it works
+Leaving home has a rhythm. You walk down the hall, pause for shoes and a jacket, turn toward the door and reach for the handle. That rhythm shows up in your phone's motion sensors, even with the phone locked in your pocket.
 
-Doorstep combines two signals that are cheap to read while the phone is locked. Neither is enough on its own; together they are specific:
+Doorstep buzzes only when **three things agree**:
 
-- **Home Wi-Fi** shows you're home. When it drops and doesn't come back, you've probably left.
-- **Walking**, from the low-power step detector, separates leaving from a router restart while the phone sits on a table.
+| | Signal | What it tells us |
+|---|---|---|
+| 🏠 | **You're on home Wi-Fi** | You're home, so this is a departure, not an arrival |
+| 🚪 | **You're near your front door** | A GPS point you save once, standing at the door |
+| 🚶 | **Your "leaving" pattern** | A small on-device model trained on *your own* walks to *your own* door |
 
-```mermaid
-flowchart LR
-    W[Home Wi-Fi callback] -->|connected| A[Armed]
-    A --> S[Batched motion sensors<br/>CPU wakes only on steps]
-    S --> B[(Rolling 3-minute<br/>sensor buffer)]
-    W -->|home network lost| G{Still gone after 10 s?<br/>Walking in the last 90 s?}
-    G -->|yes| N[Keys reminder<br/>sound + vibration]
-    G -->|yes| R[Save buffer as a<br/>labelled departure]
-    G -->|no| L[Log the decision:<br/>reconnected, not walking, ...]
+```
+ sofa ──walk──▶ hallway ──pause──▶ 🚪 door ──▶ outside ──▶ Wi-Fi drops
+                              ▲                                 ▲
+                   🔔 Doorstep buzzes here           safety-net reminder
+                   (pattern + Wi-Fi + door)          (you're already out)
 ```
 
-- **Runs while locked.** A foreground service keeps motion sensors registered in hardware-batched mode, so the sensor hub samples while the CPU sleeps. A wake-up step detector brings the CPU up only while you're walking.
-- **Guards against false alerts.** No alert if you weren't walking, if Wi-Fi comes back within the grace period, if you arrived home less than 3 minutes ago, or within 10 minutes of the last alert.
-- **Labels its own training data.** Each alert saves the two minutes of motion before it as a `Departure (auto)` recording. That window contains the real walk to the door and through it, so positive examples collect themselves. Tapping **Not leaving** turns the recording into a negative example instead.
+Why not just use GPS? Indoors, with the phone in your pocket, GPS is often off by 10–50 m. That's fine for "roughly at home, near the door" but not for pinpointing a doorway. That's why the motion pattern is what decides, and Wi-Fi and location only confirm it.
 
-The current rule alerts shortly after you step outside, when the Wi-Fi drops. The next step is to train a small on-device model on the auto-collected departures so it can alert at the door, before you cross. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) covers the power strategy, the decision parameters and the failure modes.
+## The neat trick: the late signal trains the early one
 
-## Real sensor data
+Losing your home Wi-Fi is the one moment the phone knows *for sure* that you left. It's just too late to help, since you're already outside.
 
-A real 10-second Door Crossing recording from a Pixel 8a, aligned to the moment MARK DOOR was pressed. The recording and the tools that made this plot are in the repo ([samples/](samples/README.md), [ml/](ml/README.md)).
+So Doorstep turns it into a teacher:
 
-![Acceleration, rotation, magnetic field and barometric altitude around a door crossing](docs/images/door-crossing.png)
+1. 📼 While you're home, the phone keeps a rolling 3-minute buffer of motion data, cheaply, with the screen off.
+2. 📶 Wi-Fi drops while you're walking → you definitely just left.
+3. 💾 Doorstep saves the 2 minutes *before* the drop. That clip contains your real walk to the door, **labelled automatically**. No buttons, no manual tagging.
+4. 🙅 If it guessed wrong, tap **Not leaving** and the clip becomes a "not a departure" example.
+5. 🧠 After a couple of weeks of normal life there's enough data to train the at-the-door model.
 
-Rotation settles right after the threshold, and the magnetic field shifts by about 14 µT on the approach. That's one recording, so it's a direction to explore, not a result. The same data turned up a practical constraint: the Pixel's step counter delivers in batches about 10 s late. That's why the monitor counts steps from the lower-latency step detector and looks back 90 s.
+Meanwhile the same event sends a "did you forget your keys?" reminder as a safety net. It doesn't beat the door, but it beats getting to the station.
 
-## Status
+## Where it's at
 
 | | |
 |---|---|
-| ✅ Built | Android background departure monitor, keys notification, self-labelling recordings, manual Training and Test modes |
-| ✅ Tested | 18 Kotlin tests, including real Pixel recordings replayed through the departure rule, plus 8 Python tests of the data tooling; full screen-locked flow checked on an emulator; CI runs both on every push |
-| ⏳ Next | A week of real use on a Pixel 8a to measure alert delay, false alerts per day and battery cost. No real-world results yet |
-| 🔜 Then | Train the at-the-door motion model offline, run it silently to measure it on the phone, then enable it; iOS after that |
+| ✅ | Runs with the phone **locked in your pocket**, using a low-power foreground service. The CPU wakes only when you walk |
+| ✅ | Tracks **home Wi-Fi** in the background |
+| ✅ | **Saves your departures as labelled recordings**, and **Not leaving** marks false alarms |
+| ✅ | **Safety-net reminder** when you leave, with guards against false alarms (router restarts, brief drops, just got home) |
+| ✅ | **Door location** check, with accuracy reported honestly |
+| ✅ | 26 tests, including **real Pixel recordings replayed** through the logic. CI runs them on every push |
+| 🛠️ | **Next:** the leaving-pattern model, trained on the auto-collected departures |
+| 🛠️ | **Then:** the at-the-door alert that combines all three signals |
+| ⏳ | Real-world numbers (how early it buzzes, false alarms per day, battery use) come from a week on a real phone. Not measured yet |
 
-## Repository layout
+## 📈 A peek at real data
 
-```
-android/   Kotlin + Jetpack Compose app (the active platform)
-  app/src/main/java/com/boii0boii/doorstep/
-    monitor/   departure monitor service, decision rule, Wi-Fi watcher, notifications
-    capture/   screen-off training recorder service
-    sensors/   sensor registration and recording
-    data/      recording schema, storage, ZIP export
-    ui/        Compose screens
-    location/  accuracy-aware GPS door check (diagnostic only)
-ml/        Python tools: load, validate and plot exported recordings
-samples/   two real Pixel 8a recordings
-ios/       parked SwiftUI recorder prototype
-docs/      architecture, original design plans, README images
-```
+A real 10-second walk through a front door, recorded on a Pixel 8a and lined up with the moment the door button was pressed:
 
-## Build and run
+![Acceleration, rotation, magnetic field and barometric altitude around a door crossing](docs/images/door-crossing.png)
 
-Requirements: Android Studio (or JDK 17 plus Android SDK 35). Use a physical phone to test pocket behaviour; an emulator can't simulate walking.
+Two things jump out:
+
+- **Rotation settles right after the threshold.** The twisting of reaching, turning and opening stops once you're through.
+- **The magnetic field shifts by about 14 µT on the approach.** Door frames, locks and wiring bend the magnetic field, and the phone can feel it.
+
+It's one recording, so treat these as leads, not results. That's exactly what the pattern model will learn to pick up. The same data also turned up a gotcha: the Pixel's step counter reports steps about 10 s late, so Doorstep uses the faster step *detector* instead. ([samples](samples/README.md) · [plotting tools](ml/README.md))
+
+## 🧰 Try it
+
+You need Android Studio, or JDK 17 plus Android SDK 35. Use a real phone: an emulator can't walk.
 
 ```sh
 cd android
-./gradlew testDebugUnitTest   # unit tests
-./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
-
-cd ..
-pip install -r ml/requirements.txt
-python ml/report.py samples/recordings   # data-quality report on the sample recordings
+./gradlew testDebugUnitTest   # run the tests
+./gradlew assembleDebug       # build app/build/outputs/apk/debug/app-debug.apk
 ```
 
-On the phone: open **Test** and save your home Wi-Fi. Then open **Reminders** and tap **Turn on reminders**, and grant location access as **Allow all the time**. Android hides the Wi-Fi name from background apps without it. Also grant physical activity and notification access, and allow unrestricted battery use. [android/README.md](android/README.md) covers permissions, the recording format and the device test plan.
+On the phone:
 
-## Privacy
+1. **Test** tab → save your home Wi-Fi, then stand at your front door and save the door point.
+2. **Reminders** tab → **Turn on reminders**. For location, choose **Allow all the time**; Android hides the Wi-Fi name from background apps otherwise. Also allow physical activity, notifications and unrestricted battery use.
+3. Live normally. Each departure becomes training data.
 
-Everything stays on the phone. There's no account and no server, and the app doesn't request the `INTERNET` permission. The home network name and door location are never written into recordings or exports. Motion data leaves the device only when you export a ZIP yourself.
+Want to poke at the data?
+
+```sh
+pip install -r ml/requirements.txt
+python ml/report.py samples/recordings        # quality report
+python ml/plot_recording.py samples/recordings/47555281-56fb-49db-8ef3-1739d444e497.json door.png
+```
+
+## 🗺️ What's where
+
+```
+android/   the app (Kotlin + Jetpack Compose), code in app/src/main/java/com/boii0boii/doorstep/
+  monitor/   background departure monitor, Wi-Fi watcher, notifications
+  capture/   screen-off training recorder
+  sensors/   sensor setup and recording
+  data/      recording format, storage, ZIP export
+  location/  door GPS check
+  ui/        screens
+ml/        Python tools to validate and plot recordings (model training lands here next)
+samples/   two real Pixel 8a recordings
+ios/       the original iPhone prototype (parked)
+docs/      architecture, design history, images
+```
+
+## 🔒 Privacy
+
+Everything stays on your phone. There's no account and no server, and the app doesn't request the internet permission. Your Wi-Fi name and door location are never written into recordings. Motion data leaves the phone only if you export it yourself.
 
 ## License
 
